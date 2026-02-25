@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import argparse
+from pathlib import Path
+
 import psycopg
 import structlog
 from fastmcp import FastMCP
@@ -15,6 +18,20 @@ from src.tools.schema import describe_table_tool, list_tables_tool
 
 setup_logging()
 logger = structlog.get_logger(__name__)
+
+
+def _parse_settings_path() -> Path | None:
+    """Parse --sett CLI argument to get settings file path."""
+    parser = argparse.ArgumentParser(add_help=False)
+    parser.add_argument("--sett", type=Path, default=None, help="Path to settings file")
+    args, _ = parser.parse_known_args()
+    result: Path | None = args.sett
+    return result
+
+
+_cli_settings_path: Path | None = _parse_settings_path()
+if _cli_settings_path is not None:
+    logger.info("settings_path_override", path=str(_cli_settings_path.resolve()))
 
 mcp = FastMCP("geo-post-mcp")
 
@@ -34,7 +51,7 @@ async def _get_connection() -> psycopg.AsyncConnection:
     """Get or create the database connection."""
     global _conn, _settings
     if _settings is None:
-        _settings = load_settings()
+        _settings = load_settings(_cli_settings_path)
     if _conn is None or _conn.closed:
         _conn = await create_connection(_settings)
     return _conn

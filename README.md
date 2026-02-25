@@ -20,19 +20,49 @@ MCP server that provides an AI assistant interface to PostgreSQL databases with 
 | `describe_table` | Describe columns of a table (types, nullability, spatial metadata). |
 | `fieldmeaning` | Get column comments/descriptions for a table. |
 
-## Installation
+## Prerequisites
 
-Requires Python 3.11+ and a PostgreSQL database with PostGIS.
+| Tool | Version | Purpose |
+|------|---------|---------|
+| Python | 3.11+ | Runtime |
+| PostgreSQL | 14+ | Database |
+| PostGIS | 3.0+ | Geospatial extension for PostgreSQL |
+| pip | latest | Python package manager |
+
+### Automated Setup
+
+Install scripts are provided to install all prerequisites and Python dependencies.
+
+**macOS / Linux:**
 
 ```bash
-pip install -e .
+chmod +x install.sh
+./install.sh
 ```
 
-With test dependencies:
+**Windows (PowerShell as Administrator):**
 
-```bash
-pip install -e ".[test]"
+```powershell
+.\install.ps1
 ```
+
+### Manual Installation
+
+1. **Python 3.11+** — https://www.python.org/downloads/
+2. **PostgreSQL 14+** — https://www.postgresql.org/download/
+3. **PostGIS 3.0+** — https://postgis.net/documentation/getting_started/#installing-postgis
+4. **Enable PostGIS** in your database:
+   ```sql
+   CREATE EXTENSION IF NOT EXISTS postgis;
+   ```
+5. **Install Python dependencies:**
+   ```bash
+   pip install -e .
+   ```
+   With test dependencies:
+   ```bash
+   pip install -e ".[test]"
+   ```
 
 ## Configuration
 
@@ -72,13 +102,21 @@ If not set, defaults to empty string (for passwordless local connections).
 
 ## Running the Server
 
+Use `--sett` to specify the path to the settings file. If omitted, the server looks for `geo-post-mcp-settings.json` in the current working directory.
+
 ### Streamable HTTP (for remote access)
 
 ```bash
-fastmcp run src/server.py --transport streamable-http --host 0.0.0.0 --port 8000
+fastmcp run src/server.py --transport streamable-http --host 0.0.0.0 --port 8000 -- --sett /path/to/geo-post-mcp-settings.json
 ```
 
 ### stdio (for Claude Desktop and local clients)
+
+```bash
+fastmcp run src/server.py -- --sett /path/to/geo-post-mcp-settings.json
+```
+
+Without `--sett` (looks in current directory):
 
 ```bash
 fastmcp run src/server.py
@@ -95,8 +133,14 @@ Add to your Claude Desktop config file:
 {
   "mcpServers": {
     "geo-post-mcp": {
-      "command": "fastmcp",
-      "args": ["run", "/absolute/path/to/geo-post-mcp/src/server.py"],
+      "command": "/path/to/bin/fastmcp",
+      "args": [
+        "run",
+        "/absolute/path/to/geo-post-mcp/src/server.py",
+        "--",
+        "--sett",
+        "/absolute/path/to/geo-post-mcp/geo-post-mcp-settings.json"
+      ],
       "env": {
         "POSTGISMCPPASS": "your_password"
       }
@@ -105,7 +149,7 @@ Add to your Claude Desktop config file:
 }
 ```
 
-Replace `/absolute/path/to/geo-post-mcp` with the actual path to your project. Restart Claude Desktop after editing.
+Replace paths with your actual locations. Use the full path to `fastmcp` (find it with `which fastmcp`). Restart Claude Desktop after editing.
 
 ## Connecting to MCP Inspector
 
