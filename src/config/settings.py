@@ -43,7 +43,9 @@ def load_settings(settings_path: Path | None = None) -> Settings:
         ValidationError: If settings file has missing or malformed fields.
     """
     if settings_path is None:
-        settings_path = Path(SETTINGS_FILE_NAME)
+        # Look for settings file next to the project root (parent of src/)
+        project_root = Path(__file__).resolve().parent.parent.parent
+        settings_path = project_root / SETTINGS_FILE_NAME
 
     if not settings_path.exists():
         raise FileNotFoundError(
