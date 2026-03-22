@@ -3,6 +3,8 @@
   "port": 5432,
   "user": "postgres",
   "dbname": "geo_db",
-  "schema": "geo",
-  "allowed_tables": ["buildings"]
+  "schema": "remez1",
+  "allowed_tables": ["remez1.lines","remez1.points","remez1.polygons"],
+  "log_level": "DEBUG",
+  "log_file": "/Users/michael/PycharmProjects/geo-post-mcp/geomcp.log"
 }

@@ -18,7 +18,7 @@ def mock_settings() -> Settings:
         user="test_user",
         dbname="test_db",
         **{"schema": "public"},
-        allowed_tables=["test_parcels", "test_buildings"],
+        allowed_tables=["public.test_parcels", "public.test_buildings"],
     )
 
 
@@ -33,4 +33,4 @@ def mock_db_connection() -> AsyncMock:
 @pytest.fixture
 def mock_allowed_tables() -> list[str]:
     """Return a test allowed tables list."""
-    return ["test_parcels", "test_buildings"]
+    return ["public.test_parcels", "public.test_buildings"]

@@ -24,6 +24,8 @@ class Settings(BaseModel):
     dbname: str
     schema_: str = Field(alias="schema", default="public")
     allowed_tables: list[str] = Field(default_factory=list)
+    log_level: str = Field(default="INFO")
+    log_file: str = Field(default="")
 
     model_config = {"populate_by_name": True}
 
@@ -54,7 +56,7 @@ def load_settings(settings_path: Path | None = None) -> Settings:
     with open(settings_path) as f:
         raw_data = json.load(f)
 
-    known_fields = {"host", "port", "user", "dbname", "schema", "allowed_tables"}
+    known_fields = {"host", "port", "user", "dbname", "schema", "allowed_tables", "log_level", "log_file"}
     extra_fields = set(raw_data.keys()) - known_fields
     for field_name in extra_fields:
         logger.warning("Unrecognized field in settings file: %s", field_name)

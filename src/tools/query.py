@@ -14,7 +14,7 @@ logger = structlog.get_logger(__name__)
 
 # Simple regex to extract table names from SQL
 TABLE_NAME_PATTERN = re.compile(
-    r'\bFROM\s+(\w+)|\bJOIN\s+(\w+)',
+    r'\bFROM\s+((?:\w+\.)\w+|\w+)|\bJOIN\s+((?:\w+\.)\w+|\w+)',
     re.IGNORECASE,
 )
 
@@ -29,6 +29,7 @@ def extract_table_names(sql: str) -> list[str]:
     """Extract real table names referenced in a SQL statement.
 
     CTE aliases are excluded since they are not actual tables.
+    Handles schema-qualified names like schema.table → returns 'table'.
     """
     cte_matches = CTE_ALIAS_PATTERN.findall(sql)
     cte_aliases = {m[0] or m[1] for m in cte_matches if m[0] or m[1]}
@@ -38,13 +39,15 @@ def extract_table_names(sql: str) -> list[str]:
     for match in matches:
         name = match[0] or match[1]
         if name and name not in cte_aliases:
-            tables.append(name)
+            # Strip schema qualifier: "remez1.polygons" → "polygons"
+            table_only = name.split('.')[-1]
+            tables.append(table_only)
     return tables
-
 
 async def query_tool(
     sql: str,
     conn: object,
+    schema: str,
     allowed_tables: list[str],
     row_limit: int = 1000,
 ) -> dict[str, object]:
@@ -53,6 +56,7 @@ async def query_tool(
     Args:
         sql: SQL SELECT statement to execute.
         conn: Database connection.
+        schema: Database schema.
         allowed_tables: List of permitted table names.
         row_limit: Maximum rows to return.
 
@@ -63,7 +67,7 @@ async def query_tool(
 
     referenced_tables = extract_table_names(sql)
     for table in referenced_tables:
-        if not is_table_allowed(table, allowed_tables):
+        if not is_table_allowed(table, schema, allowed_tables):
             raise ValueError(
                 f"Access denied: table '{table}' is not in the allowed tables list."
             )

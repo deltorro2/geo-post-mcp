@@ -63,9 +63,8 @@ async def list_tables(
             "estimated_rows": row[2] or 0,
         }
         for row in rows
-        if row[0] in allowed_tables
+        if f"{schema}.{row[0]}" in allowed_tables
     ]
-
 
 async def describe_table(
     conn: psycopg.AsyncConnection,

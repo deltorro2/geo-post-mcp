@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import logging
 from pathlib import Path
 
 import psycopg
@@ -16,9 +17,6 @@ from src.tools.fieldmeaning import fieldmeaning_tool
 from src.tools.query import query_tool
 from src.tools.schema import describe_table_tool, list_tables_tool
 
-setup_logging()
-logger = structlog.get_logger(__name__)
-
 
 def _parse_settings_path() -> Path | None:
     """Parse --sett CLI argument to get settings file path."""
@@ -30,13 +28,21 @@ def _parse_settings_path() -> Path | None:
 
 
 _cli_settings_path: Path | None = _parse_settings_path()
+_initial_settings: Settings = load_settings(_cli_settings_path)
+
+setup_logging(
+    level=logging.getLevelNamesMapping()[_initial_settings.log_level.upper()],
+    log_file=_initial_settings.log_file,
+)
+logger = structlog.get_logger(__name__)
+logger.info("------------------------------------SERVER STARTED--------------------------------")
 if _cli_settings_path is not None:
     logger.info("settings_path_override", path=str(_cli_settings_path.resolve()))
 
 mcp = FastMCP("geo-post-mcp")
 
 # Module-level state set during startup
-_settings: Settings | None = None
+_settings: Settings | None = _initial_settings
 _conn: psycopg.AsyncConnection | None = None
 
 
@@ -71,7 +77,7 @@ async def query(sql: str, row_limit: int = 1000) -> dict[str, object]:
     """
     conn = await _get_connection()
     assert _settings is not None
-    return await query_tool(sql, conn, _settings.allowed_tables, row_limit)
+    return await query_tool(sql, conn, _settings.schema_, _settings.allowed_tables, row_limit)
 
 
 @mcp.tool()
@@ -119,3 +125,7 @@ async def fieldmeaning(table_name: str) -> dict[str, object]:
     return await fieldmeaning_tool(
         table_name, conn, _settings.schema_, _settings.allowed_tables
     )
+
+
+if __name__ == "__main__":
+    mcp.run()

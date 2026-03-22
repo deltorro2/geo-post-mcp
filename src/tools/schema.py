@@ -44,7 +44,7 @@ async def describe_table_tool(
     Returns:
         List of column details.
     """
-    if not is_table_allowed(table_name, allowed_tables):
+    if not is_table_allowed(table_name, schema, allowed_tables):
         raise ValueError(
             f"Access denied: table '{table_name}' is not in the allowed tables list."
         )

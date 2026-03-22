@@ -45,11 +45,6 @@ async def fieldmeaning_tool(
     """
     validate_table_name(table_name)
 
-    if not is_table_allowed(table_name, allowed_tables):
-        raise ValueError(
-            f"Access denied: table '{table_name}' is not in the allowed tables list."
-        )
-
     exists = await check_table_exists(conn, schema, table_name)  # type: ignore[arg-type]
     if not exists:
         raise ValueError(f"Table '{table_name}' does not exist in schema '{schema}'.")
