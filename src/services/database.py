@@ -17,7 +17,7 @@ async def create_connection(settings: Settings) -> psycopg.AsyncConnection:
         settings: Server settings with DB connection params.
 
     Returns:
-        An open async psycopg connection.
+        An open async psycopg connection with search_path set to the configured schema.
 
     Raises:
         psycopg.OperationalError: If connection fails.
@@ -31,10 +31,12 @@ async def create_connection(settings: Settings) -> psycopg.AsyncConnection:
         dbname=settings.dbname,
         autocommit=True,
     )
+    await conn.execute(f"SET search_path TO {settings.schema_}, public")
     logger.info(
         "database_connected",
         host=settings.host,
         port=settings.port,
         user=settings.user,
+        schema=settings.schema_,
     )
     return conn
