@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 
 import structlog
@@ -52,3 +53,15 @@ def test_password_not_in_log_output(capsys):
     # But the safe fields should be present
     assert "localhost" in captured.err
     assert "admin" in captured.err
+
+
+def test_stdlib_logger_routed_through_structlog(capsys):
+    """Stdlib log records get JSON format with timestamp and level."""
+    setup_logging(level=logging.DEBUG)
+    stdlib_logger = logging.getLogger("mcp.server.lowlevel.server")
+    stdlib_logger.info("Processing request of type CallToolRequest")
+    captured = capsys.readouterr()
+    entry = json.loads(captured.err.strip())
+    assert entry["event"] == "Processing request of type CallToolRequest"
+    assert "timestamp" in entry
+    assert "level" in entry

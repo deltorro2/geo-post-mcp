@@ -1,7 +1,7 @@
-# Specification Quality Checklist: Field Meaning Tool
+# Specification Quality Checklist: Query Output Format
 
 **Purpose**: Validate specification completeness and quality before proceeding to planning
-**Created**: 2026-02-23
+**Created**: 2026-04-30
 **Feature**: [spec.md](../spec.md)
 
 ## Content Quality
@@ -31,7 +31,5 @@
 
 ## Notes
 
-- All items pass validation.
-- Added FR-006 (include data type) beyond user request as it provides
-  essential context alongside field meanings.
-- Spec is ready for `/speckit.clarify` or `/speckit.plan`.
+- All items pass. Spec is ready for `/speckit.clarify` or `/speckit.plan`.
+- Assumptions section documents reasonable defaults for multi-geometry handling, null geometries, and ST_AsGeoJSON usage.

@@ -2,13 +2,9 @@
 
 from __future__ import annotations
 
-import structlog
-
 from src.models.fieldmeaning import FieldMeaningResponse
 from src.services.access_control import is_table_allowed
 from src.services.fieldmeaning import check_table_exists, get_field_meanings
-
-logger = structlog.get_logger(__name__)
 
 
 def validate_table_name(table_name: str) -> None:
@@ -45,19 +41,16 @@ async def fieldmeaning_tool(
     """
     validate_table_name(table_name)
 
+    if not is_table_allowed(table_name, schema, allowed_tables):
+        raise ValueError(
+            f"Access denied: table '{table_name}' is not in the allowed tables list."
+        )
+
     exists = await check_table_exists(conn, schema, table_name)  # type: ignore[arg-type]
     if not exists:
         raise ValueError(f"Table '{table_name}' does not exist in schema '{schema}'.")
 
-    logger.info("fieldmeaning_tool_invoked", table_name=table_name)
-
     entries = await get_field_meanings(conn, schema, table_name)  # type: ignore[arg-type]
-
-    logger.info(
-        "fieldmeaning_result",
-        table_name=table_name,
-        column_count=len(entries),
-    )
 
     response = FieldMeaningResponse(
         table=table_name,

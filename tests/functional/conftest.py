@@ -21,7 +21,8 @@ def db_settings():
 @pytest.fixture(scope="session")
 def test_settings(db_settings):
     """Settings with test tables added to allowed_tables."""
-    test_tables_list = ["test_parcels", "test_buildings"]
+    schema = db_settings.schema_
+    test_tables_list = [f"{schema}.test_parcels", f"{schema}.test_buildings"]
     combined = list(set(db_settings.allowed_tables + test_tables_list))
     return Settings(
         host=db_settings.host,
@@ -65,6 +66,8 @@ async def db_connection(test_settings, _check_db):
         dbname=test_settings.dbname,
         autocommit=True,
     )
+    # Set search_path so bare table names resolve to the configured schema
+    await conn.execute(f"SET search_path TO {test_settings.schema_}, public")
     yield conn
     await conn.close()
 
@@ -82,12 +85,13 @@ async def mcp_client(db_connection, test_settings):
 
 
 @pytest_asyncio.fixture
-async def test_tables(db_connection):
+async def test_tables(db_connection, test_settings):
     """Create test tables with sample data, drop on teardown."""
     conn = db_connection
+    s = test_settings.schema_
 
-    await conn.execute("""
-        CREATE TABLE IF NOT EXISTS test_parcels (
+    await conn.execute(f"""
+        CREATE TABLE IF NOT EXISTS {s}.test_parcels (
             gid integer PRIMARY KEY,
             name varchar(100),
             area_sqm double precision,
@@ -95,17 +99,17 @@ async def test_tables(db_connection):
         )
     """)
     await conn.execute(
-        "COMMENT ON COLUMN test_parcels.gid IS 'Unique parcel identifier'"
+        f"COMMENT ON COLUMN {s}.test_parcels.gid IS 'Unique parcel identifier'"
     )
     await conn.execute(
-        "COMMENT ON COLUMN test_parcels.name IS 'Human-readable parcel name'"
+        f"COMMENT ON COLUMN {s}.test_parcels.name IS 'Human-readable parcel name'"
     )
     await conn.execute(
-        "COMMENT ON COLUMN test_parcels.geom IS 'Parcel boundary polygon'"
+        f"COMMENT ON COLUMN {s}.test_parcels.geom IS 'Parcel boundary polygon'"
     )
 
-    await conn.execute("""
-        CREATE TABLE IF NOT EXISTS test_buildings (
+    await conn.execute(f"""
+        CREATE TABLE IF NOT EXISTS {s}.test_buildings (
             bid integer PRIMARY KEY,
             parcel_id integer,
             height_m double precision,
@@ -113,46 +117,46 @@ async def test_tables(db_connection):
         )
     """)
     await conn.execute(
-        "COMMENT ON COLUMN test_buildings.bid IS 'Building identifier'"
+        f"COMMENT ON COLUMN {s}.test_buildings.bid IS 'Building identifier'"
     )
     await conn.execute(
-        "COMMENT ON COLUMN test_buildings.parcel_id IS 'Reference to parent parcel'"
+        f"COMMENT ON COLUMN {s}.test_buildings.parcel_id IS 'Reference to parent parcel'"
     )
     await conn.execute(
-        "COMMENT ON COLUMN test_buildings.height_m IS 'Building height in meters'"
+        f"COMMENT ON COLUMN {s}.test_buildings.height_m IS 'Building height in meters'"
     )
     await conn.execute(
-        "COMMENT ON COLUMN test_buildings.location IS 'Building centroid'"
+        f"COMMENT ON COLUMN {s}.test_buildings.location IS 'Building centroid'"
     )
 
-    await conn.execute("""
-        CREATE TABLE IF NOT EXISTS test_restricted (
+    await conn.execute(f"""
+        CREATE TABLE IF NOT EXISTS {s}.test_restricted (
             id integer PRIMARY KEY,
             secret text
         )
     """)
     await conn.execute(
-        "COMMENT ON COLUMN test_restricted.id IS 'Restricted data'"
+        f"COMMENT ON COLUMN {s}.test_restricted.id IS 'Restricted data'"
     )
     await conn.execute(
-        "COMMENT ON COLUMN test_restricted.secret IS 'Sensitive value'"
+        f"COMMENT ON COLUMN {s}.test_restricted.secret IS 'Sensitive value'"
     )
 
     # Insert sample data
-    await conn.execute("""
-        INSERT INTO test_parcels (gid, name, area_sqm, geom) VALUES
+    await conn.execute(f"""
+        INSERT INTO {s}.test_parcels (gid, name, area_sqm, geom) VALUES
             (1, 'Park A', 5000.0, ST_GeomFromText('POLYGON((0 0, 1 0, 1 1, 0 1, 0 0))', 4326)),
             (2, 'Park B', 3000.0, ST_GeomFromText('POLYGON((2 2, 3 2, 3 3, 2 3, 2 2))', 4326))
         ON CONFLICT (gid) DO NOTHING
     """)
-    await conn.execute("""
-        INSERT INTO test_buildings (bid, parcel_id, height_m, location) VALUES
+    await conn.execute(f"""
+        INSERT INTO {s}.test_buildings (bid, parcel_id, height_m, location) VALUES
             (1, 1, 10.5, ST_GeomFromText('POINT(0.5 0.5)', 4326)),
             (2, 2, 20.0, ST_GeomFromText('POINT(2.5 2.5)', 4326))
         ON CONFLICT (bid) DO NOTHING
     """)
-    await conn.execute("""
-        INSERT INTO test_restricted (id, secret) VALUES
+    await conn.execute(f"""
+        INSERT INTO {s}.test_restricted (id, secret) VALUES
             (1, 'classified')
         ON CONFLICT (id) DO NOTHING
     """)
@@ -160,6 +164,6 @@ async def test_tables(db_connection):
     yield
 
     # Teardown
-    await conn.execute("DROP TABLE IF EXISTS test_restricted")
-    await conn.execute("DROP TABLE IF EXISTS test_buildings")
-    await conn.execute("DROP TABLE IF EXISTS test_parcels")
+    await conn.execute(f"DROP TABLE IF EXISTS {s}.test_restricted")
+    await conn.execute(f"DROP TABLE IF EXISTS {s}.test_buildings")
+    await conn.execute(f"DROP TABLE IF EXISTS {s}.test_parcels")

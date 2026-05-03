@@ -12,6 +12,7 @@ from fastmcp import FastMCP
 
 from src.config.logging import setup_logging
 from src.config.settings import Settings, load_settings
+from src.middleware.logging import ToolLoggingMiddleware
 from src.services.database import create_connection
 from src.tools.fieldmeaning import fieldmeaning_tool
 from src.tools.query import query_tool
@@ -40,6 +41,7 @@ if _cli_settings_path is not None:
     logger.info("settings_path_override", path=str(_cli_settings_path.resolve()))
 
 mcp = FastMCP("geo-post-mcp")
+mcp.add_middleware(ToolLoggingMiddleware())
 
 # Module-level state set during startup
 _settings: Settings | None = _initial_settings
@@ -64,20 +66,29 @@ async def _get_connection() -> psycopg.AsyncConnection:
 
 
 @mcp.tool()
-async def query(sql: str, row_limit: int = 1000) -> dict[str, object]:
+async def query(
+    sql: str, row_limit: int = 1000, output_format: str = "text"
+) -> dict[str, object]:
     """Execute a SQL SELECT query against the database.
 
-    Only SELECT queries are permitted. Results are returned with
-    column names, typed values, and a row count. Geometry columns
-    are returned as GeoJSON. Results are truncated at row_limit.
+    Only SELECT queries are permitted. Results are truncated at row_limit.
 
     Args:
         sql: SQL SELECT statement to execute.
         row_limit: Maximum number of rows to return (default 1000).
+        output_format: Response format. "text" (default) returns tabular data
+            with columns, rows, and row_count — best for textual answers.
+            "geojson" returns a GeoJSON FeatureCollection (RFC 7946) where
+            each row becomes a Feature with geometry from the 'geom' column
+            and all other columns as properties. GeoJSON is recommended for
+            drawing vector objects graphically in UI (e.g. Leaflet maps).
+            The query must include a column named 'geom' for GeoJSON output.
     """
     conn = await _get_connection()
     assert _settings is not None
-    return await query_tool(sql, conn, _settings.schema_, _settings.allowed_tables, row_limit)
+    return await query_tool(
+        sql, conn, _settings.schema_, _settings.allowed_tables, row_limit, output_format
+    )
 
 
 @mcp.tool()

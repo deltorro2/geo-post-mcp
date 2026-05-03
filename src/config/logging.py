@@ -38,8 +38,21 @@ def setup_logging(level: int = logging.INFO, log_file: str = "") -> None:
         cache_logger_on_first_use=True,
     )
 
-    logging.basicConfig(
-        format="%(message)s",
-        stream=log_output,
-        level=level,
+    # Route stdlib logging (including mcp.* and fastmcp.* loggers)
+    # through structlog's processor chain for consistent JSON output.
+    formatter = structlog.stdlib.ProcessorFormatter(
+        processors=[
+            structlog.stdlib.ProcessorFormatter.remove_processors_meta,
+            structlog.stdlib.add_log_level,
+            structlog.processors.TimeStamper(fmt="iso"),
+            structlog.processors.JSONRenderer(),
+        ],
     )
+
+    handler = logging.StreamHandler(log_output)
+    handler.setFormatter(formatter)
+
+    root_logger = logging.getLogger()
+    root_logger.handlers.clear()
+    root_logger.addHandler(handler)
+    root_logger.setLevel(level)
