@@ -45,6 +45,23 @@ def extract_table_names(sql: str) -> list[str]:
 
 VALID_OUTPUT_FORMATS = ("text", "geojson")
 
+# Matches "SELECT *," followed by optional whitespace and "geom" as a
+# standalone column (not part of a function call like ST_AsGeoJSON(geom)).
+# Handles: "SELECT *, geom", "SELECT *,geom", "SELECT *, geom,"
+_REDUNDANT_GEOM_PATTERN = re.compile(
+    r'(?<=SELECT\s)\*\s*,\s*geom\b(?!\s*\()',
+    re.IGNORECASE,
+)
+
+
+def _strip_redundant_geom(sql: str) -> str:
+    """Remove explicit 'geom' column when SELECT * already includes it.
+
+    Turns ``SELECT *, geom FROM ...`` into ``SELECT * FROM ...``
+    to avoid duplicate column names in subqueries.
+    """
+    return _REDUNDANT_GEOM_PATTERN.sub('*', sql)
+
 
 async def query_tool(
     sql: str,
@@ -83,13 +100,17 @@ async def query_tool(
                 f"Access denied: table '{table}' is not in the allowed tables list."
             )
 
-    # When geojson requested, wrap SQL to convert geom via ST_AsGeoJSON.
-    # Use __geom_geojson alias to avoid duplicate column name with *.
+    # When geojson requested, wrap SQL to add ST_AsGeoJSON(geom).
+    # Problem: if the LLM generates "SELECT *, geom" the subquery has
+    # duplicate geom columns, making ST_AsGeoJSON(geom) ambiguous.
+    # Fix: rewrite the user SQL to use "SELECT *" (drop explicit geom
+    # if it's already covered by *) before wrapping.
     exec_sql = sql
     if output_format == "geojson":
+        clean_sql = _strip_redundant_geom(sql)
         exec_sql = (
             f"SELECT *, ST_AsGeoJSON(geom) AS __geom_geojson"
-            f" FROM ({sql}) AS __inner"
+            f" FROM ({clean_sql}) AS __inner"
         )
 
     try:
