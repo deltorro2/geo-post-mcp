@@ -25,6 +25,12 @@ Thumbs.db
 .env*
 !.env.example
 
+# Logs
+*.log
+
+# Local environment-specific settings
+local-settings.json
+
 # Testing
 .coverage
 htmlcov/

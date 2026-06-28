@@ -22,7 +22,12 @@ def db_settings():
 def test_settings(db_settings):
     """Settings with test tables added to allowed_tables."""
     schema = db_settings.schema_
-    test_tables_list = [f"{schema}.test_parcels", f"{schema}.test_buildings"]
+    test_tables_list = [
+        f"{schema}.test_parcels",
+        f"{schema}.test_buildings",
+        f"{schema}.test_meta",
+        f"{schema}.test_nometa",
+    ]
     combined = list(set(db_settings.allowed_tables + test_tables_list))
     return Settings(
         host=db_settings.host,
@@ -161,9 +166,38 @@ async def test_tables(db_connection, test_settings):
         ON CONFLICT (id) DO NOTHING
     """)
 
+    # Table with a bigint PK and a jsonb metadata column (upsert target).
+    await conn.execute(f"""
+        CREATE TABLE IF NOT EXISTS {s}.test_meta (
+            id bigint PRIMARY KEY,
+            name text,
+            metadata jsonb
+        )
+    """)
+    await conn.execute(f"""
+        INSERT INTO {s}.test_meta (id, name, metadata) VALUES
+            (1, 'alpha', '{{"existing": "kept", "status": "draft"}}'::jsonb),
+            (2, 'beta', NULL)
+        ON CONFLICT (id) DO NOTHING
+    """)
+
+    # Table with a bigint PK but NO metadata column (ineligible for upsert).
+    await conn.execute(f"""
+        CREATE TABLE IF NOT EXISTS {s}.test_nometa (
+            id bigint PRIMARY KEY,
+            name text
+        )
+    """)
+    await conn.execute(f"""
+        INSERT INTO {s}.test_nometa (id, name) VALUES (1, 'no-meta')
+        ON CONFLICT (id) DO NOTHING
+    """)
+
     yield
 
     # Teardown
+    await conn.execute(f"DROP TABLE IF EXISTS {s}.test_nometa")
+    await conn.execute(f"DROP TABLE IF EXISTS {s}.test_meta")
     await conn.execute(f"DROP TABLE IF EXISTS {s}.test_restricted")
     await conn.execute(f"DROP TABLE IF EXISTS {s}.test_buildings")
     await conn.execute(f"DROP TABLE IF EXISTS {s}.test_parcels")

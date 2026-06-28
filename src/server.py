@@ -17,6 +17,7 @@ from src.services.database import create_connection
 from src.tools.fieldmeaning import fieldmeaning_tool
 from src.tools.query import query_tool
 from src.tools.schema import describe_table_tool, list_tables_tool
+from src.tools.upsert import upsert_metadata_tool
 
 
 def _parse_settings_path() -> Path | None:
@@ -135,6 +136,33 @@ async def fieldmeaning(table_name: str) -> dict[str, object]:
     assert _settings is not None
     return await fieldmeaning_tool(
         table_name, conn, _settings.schema_, _settings.allowed_tables
+    )
+
+
+@mcp.tool()
+async def upsert_metadata(
+    table_name: str, id: int, newkey: str, newvalue: str
+) -> dict[str, object]:
+    """Insert or replace a single key/value pair in a record's metadata column.
+
+    The record is located by its 'id' (the table's bigint primary key). If
+    'newkey' already exists, its value is replaced; otherwise it is added. All
+    other keys are preserved. 'newvalue' is stored as its native JSON type when
+    it is valid JSON (e.g. 42, true, [1,2]), otherwise as a string.
+
+    This is the only tool permitted to write data, and it writes only to the
+    'metadata' column. All other tools remain read-only.
+
+    Args:
+        table_name: Bare table name (no schema qualifier).
+        id: Primary-key value of the target record.
+        newkey: Metadata key to insert or replace.
+        newvalue: Value to store (auto-detected as JSON or stored as a string).
+    """
+    conn = await _get_connection()
+    assert _settings is not None
+    return await upsert_metadata_tool(
+        table_name, id, newkey, newvalue, conn, _settings.schema_, _settings.allowed_tables
     )
 
 
